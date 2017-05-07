@@ -1,0 +1,4 @@
+GET     /r.png                      ru.makkarpov.textg.RenderController.png(f, s: Float)
+GET     /r.jpg                      ru.makkarpov.textg.RenderController.jpg(f, s: Float)
+
+GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)
