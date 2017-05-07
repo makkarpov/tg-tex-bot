@@ -25,6 +25,9 @@ class TelegramBot @Inject()(cfg: Configuration, system: ActorSystem, renderer: T
   val token = cfg.getString("textg.token").getOrElse(sys.error("Telegram token is not specified"))
   val host = cfg.getString("textg.host").getOrElse(sys.error("No host specified"))
   val botName = cfg.getString("textg.botname").getOrElse(sys.error("No bot name specified"))
+  val idSalt = cfg.getString("textg.id-salt").getOrElse("")
+  val scale = cfg.getDouble("textg.scale").getOrElse(60.0).toFloat
+  val lengthLimit = cfg.getInt("textg.length-limit").getOrElse(1024)
 
   implicit val fakeRequestHeader = new RequestHeader {
     override def clientCertificateChain: Option[Seq[X509Certificate]] = None
@@ -40,8 +43,6 @@ class TelegramBot @Inject()(cfg: Configuration, system: ActorSystem, renderer: T
     override def tags: Map[String, String] = Map.empty
   }
 
-  val lengthLimit = 1024
-
   val bot = new BotBase with OwnPolling {
     override val token: String = TelegramBot.this.token
     override val logger: Logger = Logger("ru.makkarpov.bot")
@@ -52,7 +53,7 @@ class TelegramBot @Inject()(cfg: Configuration, system: ActorSystem, renderer: T
     override implicit def executionContext: ExecutionContext = TelegramBot.this.system.dispatcher
 
     private def sha256(s: String): String =
-      Hex.encodeHexString(MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8)))
+      Hex.encodeHexString(MessageDigest.getInstance("SHA-256").digest((idSalt + s).getBytes(StandardCharsets.UTF_8)))
 
     private def escape(s: String): String =
       s.replaceAll("&", "&amp;").replaceAll("\"", "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
@@ -125,7 +126,7 @@ class TelegramBot @Inject()(cfg: Configuration, system: ActorSystem, renderer: T
         return
       }
 
-      val settings = RenderSettings(60, transparent = false)
+      val settings = RenderSettings(scale, transparent = false)
 
       val responses =
         renderer.testRender(formula, settings) map {
@@ -161,7 +162,7 @@ class TelegramBot @Inject()(cfg: Configuration, system: ActorSystem, renderer: T
             return
           }
 
-          val settings = RenderSettings(60, transparent = false)
+          val settings = RenderSettings(scale, transparent = false)
 
           renderer.testRender(formula, settings) foreach {
             case Some(err) => replyError(err)
